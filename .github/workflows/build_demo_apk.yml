@@ -47,6 +47,8 @@ jobs:
           if [ ! -d "android" ]; then
             echo "Generating Android platform scaffolding for example app..."
             flutter create --platforms=android --org com.liquidglass.widgets .
+            # Remove default dummy test that references non-existent MyApp
+            rm -f test/widget_test.dart
           fi
 
           # Ensure minSdk is 21+ required by video_player, webview_flutter, and Impeller

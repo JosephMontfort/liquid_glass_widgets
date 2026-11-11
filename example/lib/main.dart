@@ -1781,83 +1781,85 @@ class _SearchResultsView extends StatelessWidget {
                   final item = filtered[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: GlassContainer.card(
-                      surfaceStyle: GlassSurfaceStyle.solid,
+                    child: GestureDetector(
                       onTap: () {
                         onSelect();
                         _openDemo(context, item.destination);
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFA855F7).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
+                      child: GlassContainer.card(
+                        surfaceStyle: GlassSurfaceStyle.solid,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA855F7).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  item.icon,
+                                  size: 20,
+                                  color: const Color(0xFFA855F7),
+                                ),
                               ),
-                              child: Icon(
-                                item.icon,
-                                size: 20,
-                                color: const Color(0xFFA855F7),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.title,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: CupertinoColors.label.resolveFrom(context),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.title,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: CupertinoColors.label.resolveFrom(context),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          item.category,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                            color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            item.category,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    item.subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      item.subtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              CupertinoIcons.chevron_right,
-                              size: 16,
-                              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Icon(
+                                CupertinoIcons.chevron_right,
+                                size: 16,
+                                color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
