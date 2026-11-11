@@ -64,6 +64,9 @@ class _AppleLiquidGlassShowcaseAppState
   /// Global glass style preset — shared via [_BrightnessScope] and [GlassTheme].
   GlassStyle _style = GlassStyle.ios27;
 
+  /// Global glass quality tier — shared via [_BrightnessScope] and [GlassTheme].
+  GlassQuality _quality = GlassQuality.premium;
+
   @override
   void initState() {
     super.initState();
@@ -102,21 +105,37 @@ class _AppleLiquidGlassShowcaseAppState
     }
   }
 
+  void _setQuality(GlassQuality quality) {
+    if (_quality == quality) return;
+    setState(() {
+      _quality = quality;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = _brightness == Brightness.dark;
 
+    final baseTheme = switch (_style) {
+      GlassStyle.ios27 => GlassThemeData.ios27(brightness: _brightness),
+      GlassStyle.ios26 => GlassThemeData.ios26(brightness: _brightness),
+      GlassStyle.classic => GlassThemeData.classic(brightness: _brightness),
+    };
+
+    final effectiveTheme = baseTheme.copyWith(
+      light: baseTheme.light.copyWith(quality: _quality),
+      dark: baseTheme.dark.copyWith(quality: _quality),
+    );
+
     return GlassTheme(
-      data: switch (_style) {
-        GlassStyle.ios27 => GlassThemeData.ios27(brightness: _brightness),
-        GlassStyle.ios26 => GlassThemeData.ios26(brightness: _brightness),
-        GlassStyle.classic => GlassThemeData.classic(brightness: _brightness),
-      },
+      data: effectiveTheme,
       child: _BrightnessScope(
         brightness: _brightness,
         toggleBrightness: _toggleBrightness,
         style: _style,
         setStyle: _setStyle,
+        quality: _quality,
+        setQuality: _setQuality,
         child: CupertinoApp(
           title: 'Liquid Glass Widgets',
           theme: CupertinoThemeData(
@@ -145,14 +164,16 @@ class _AppleLiquidGlassShowcaseAppState
   }
 }
 
-/// Inherited widget exposing the current [Brightness], [GlassStyle], and
-/// callbacks to any descendant widget in the example app.
+/// Inherited widget exposing the current [Brightness], [GlassStyle], [GlassQuality],
+/// and callbacks to any descendant widget in the example app.
 class _BrightnessScope extends InheritedWidget {
   const _BrightnessScope({
     required this.brightness,
     required this.toggleBrightness,
     required this.style,
     required this.setStyle,
+    required this.quality,
+    required this.setQuality,
     required super.child,
   });
 
@@ -160,6 +181,8 @@ class _BrightnessScope extends InheritedWidget {
   final VoidCallback toggleBrightness;
   final GlassStyle style;
   final ValueChanged<GlassStyle> setStyle;
+  final GlassQuality quality;
+  final ValueChanged<GlassQuality> setQuality;
 
   static _BrightnessScope of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<_BrightnessScope>()!;
@@ -167,7 +190,9 @@ class _BrightnessScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_BrightnessScope oldWidget) =>
-      brightness != oldWidget.brightness || style != oldWidget.style;
+      brightness != oldWidget.brightness ||
+      style != oldWidget.style ||
+      quality != oldWidget.quality;
 }
 
 class _GlassStyleSelector extends StatelessWidget {
@@ -208,6 +233,15 @@ class ShowcaseHomePage extends StatefulWidget {
 
 class _ShowcaseHomePageState extends State<ShowcaseHomePage> {
   int _selectedTab = 0;
+  bool _isSearchActive = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   static const _tabs = [
     GlassTab(
@@ -242,10 +276,156 @@ class _ShowcaseHomePageState extends State<ShowcaseHomePage> {
       statusBarStyle:
           isDark ? GlassStatusBarStyle.light : GlassStatusBarStyle.dark,
       topEdgeFade: true,
-      bottomBar: GlassTabBar.bottom(
+      appBar: GlassAppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Liquid Glass',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: CupertinoColors.label.resolveFrom(context),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: scope.quality == GlassQuality.premium
+                    ? const Color(0xFFA855F7).withValues(alpha: 0.25)
+                    : (scope.quality == GlassQuality.standard
+                        ? CupertinoColors.activeBlue.withValues(alpha: 0.25)
+                        : CupertinoColors.systemGrey.withValues(alpha: 0.25)),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: scope.quality == GlassQuality.premium
+                      ? const Color(0xFFA855F7).withValues(alpha: 0.6)
+                      : (scope.quality == GlassQuality.standard
+                          ? CupertinoColors.activeBlue.withValues(alpha: 0.6)
+                          : CupertinoColors.systemGrey.withValues(alpha: 0.6)),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                '${scope.style.name.toUpperCase()} · ${scope.quality.name.toUpperCase()}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: scope.quality == GlassQuality.premium
+                      ? const Color(0xFFA855F7)
+                      : (scope.quality == GlassQuality.standard
+                          ? CupertinoColors.activeBlue
+                          : CupertinoColors.secondaryLabel.resolveFrom(context)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          GlassPullDownButton(
+            icon: const Icon(CupertinoIcons.slider_horizontal_3, size: 20),
+            semanticLabel: 'Settings and Quality Tiers',
+            items: [
+              GlassMenuItem(
+                title: 'Quality Tier',
+                icon: const Icon(CupertinoIcons.sparkles),
+                subtitle: scope.quality.name.toUpperCase(),
+                onTap: () {},
+                submenu: [
+                  GlassMenuItem(
+                    title: 'Premium (Impeller)',
+                    subtitle: 'Full 16-shape shader, refraction & dispersion',
+                    isSelected: scope.quality == GlassQuality.premium,
+                    trailing: scope.quality == GlassQuality.premium
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setQuality(GlassQuality.premium),
+                  ),
+                  GlassMenuItem(
+                    title: 'Standard (2D Shader)',
+                    subtitle: '60/120fps optimized single-pass',
+                    isSelected: scope.quality == GlassQuality.standard,
+                    trailing: scope.quality == GlassQuality.standard
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setQuality(GlassQuality.standard),
+                  ),
+                  GlassMenuItem(
+                    title: 'Minimal (Frosted)',
+                    subtitle: 'Zero shader overhead, BackdropFilter fallback',
+                    isSelected: scope.quality == GlassQuality.minimal,
+                    trailing: scope.quality == GlassQuality.minimal
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setQuality(GlassQuality.minimal),
+                  ),
+                ],
+              ),
+              GlassMenuItem(
+                title: 'Design Era',
+                icon: const Icon(CupertinoIcons.layers_alt),
+                subtitle: scope.style.name.toUpperCase(),
+                onTap: () {},
+                submenu: [
+                  GlassMenuItem(
+                    title: 'iOS 27',
+                    subtitle: 'Paraxial lens, frost, rimShade & rimLight',
+                    isSelected: scope.style == GlassStyle.ios27,
+                    trailing: scope.style == GlassStyle.ios27
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setStyle(GlassStyle.ios27),
+                  ),
+                  GlassMenuItem(
+                    title: 'iOS 26',
+                    subtitle: 'Fluid jelly physics, dynamic rim highlights',
+                    isSelected: scope.style == GlassStyle.ios26,
+                    trailing: scope.style == GlassStyle.ios26
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setStyle(GlassStyle.ios26),
+                  ),
+                  GlassMenuItem(
+                    title: 'Classic',
+                    subtitle: 'Standard frosted glass styling',
+                    isSelected: scope.style == GlassStyle.classic,
+                    trailing: scope.style == GlassStyle.classic
+                        ? const Icon(CupertinoIcons.checkmark, size: 16)
+                        : null,
+                    onTap: () => scope.setStyle(GlassStyle.classic),
+                  ),
+                ],
+              ),
+              const GlassMenuDivider(),
+              GlassMenuItem(
+                title: isDark ? 'Light Mode' : 'Dark Mode',
+                icon: Icon(isDark ? CupertinoIcons.sun_max : CupertinoIcons.moon),
+                onTap: scope.toggleBrightness,
+              ),
+            ],
+          ),
+        ],
+      ),
+      bottomBar: GlassTabBar.searchable(
         selectedIndex: _selectedTab,
-        onTabSelected: (i) => setState(() => _selectedTab = i),
-        interactionBehavior: GlassInteractionBehavior.full,
+        onTabSelected: (i) => setState(() {
+          _selectedTab = i;
+          _isSearchActive = false;
+        }),
+        isSearchActive: _isSearchActive,
+        searchConfig: GlassSearchBarConfig(
+          hintText: 'Search widgets, demos...',
+          controller: _searchController,
+          onSearchToggle: (active) => setState(() {
+            _isSearchActive = active;
+            if (!active) {
+              _searchQuery = '';
+              _searchController.clear();
+            }
+          }),
+          onChanged: (q) => setState(() => _searchQuery = q),
+        ),
         selectedIconColor: const Color(0xFFA855F7),
         iconSize: 28,
         labelFontSize: 10,
@@ -257,15 +437,20 @@ class _ShowcaseHomePageState extends State<ShowcaseHomePage> {
         ),
         tabs: _tabs,
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: switch (_selectedTab) {
-          0 => const _ExploreTab(key: ValueKey('explore')),
-          1 => const _WidgetsTab(key: ValueKey('widgets')),
-          2 => const _DemosTab(key: ValueKey('demos')),
-          _ => const _ExamplesTab(key: ValueKey('examples')),
-        },
-      ),
+      body: _isSearchActive
+          ? _SearchResultsView(
+              query: _searchQuery,
+              onSelect: () => setState(() => _isSearchActive = false),
+            )
+          : AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: switch (_selectedTab) {
+                0 => const _ExploreTab(key: ValueKey('explore')),
+                1 => const _WidgetsTab(key: ValueKey('widgets')),
+                2 => const _DemosTab(key: ValueKey('demos')),
+                _ => const _ExamplesTab(key: ValueKey('examples')),
+              },
+            ),
     );
   }
 }
@@ -1257,6 +1442,432 @@ class _LargeDemoCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// Search Results View & Catalog Data
+// =============================================================================
+
+class _CatalogItem {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String category;
+  final Widget destination;
+
+  const _CatalogItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.category,
+    required this.destination,
+  });
+}
+
+class _SearchResultsView extends StatelessWidget {
+  const _SearchResultsView({
+    required this.query,
+    required this.onSelect,
+  });
+
+  final String query;
+  final VoidCallback onSelect;
+
+  static const List<_CatalogItem> _allItems = [
+    // Apple App Recreations
+    _CatalogItem(
+      title: 'Apple Mail',
+      subtitle: 'iOS 27 glass demo · pinned nav, gel morph & compose',
+      icon: CupertinoIcons.mail_solid,
+      category: 'Apple Demos',
+      destination: AppleMailHomeScreen(),
+    ),
+    _CatalogItem(
+      title: 'Apple Music',
+      subtitle: 'Searchable bottom bar, play pill, tab navigation',
+      icon: CupertinoIcons.music_note_2,
+      category: 'Apple Demos',
+      destination: AppleMusicHomeScreen(),
+    ),
+    _CatalogItem(
+      title: 'Apple Messages',
+      subtitle: 'Conversations, teardrop edit menus & filters',
+      icon: CupertinoIcons.chat_bubble_2_fill,
+      category: 'Apple Demos',
+      destination: MessagesScreen(),
+    ),
+    _CatalogItem(
+      title: 'Apple Podcasts',
+      subtitle: 'Mini-player, now playing sheet & scroll collapse',
+      icon: CupertinoIcons.mic_fill,
+      category: 'Apple Demos',
+      destination: ApplePodcastsHomeScreen(),
+    ),
+    _CatalogItem(
+      title: 'Apple News',
+      subtitle: 'Editorial layout, topic pill carousel & glass header',
+      icon: CupertinoIcons.news,
+      category: 'Apple Demos',
+      destination: AppleNewsHomeScreen(),
+    ),
+    _CatalogItem(
+      title: 'Keypad Lock Screen',
+      subtitle: 'Full-bleed blur, glass numeric keypad & emergency dialer',
+      icon: CupertinoIcons.lock_fill,
+      category: 'Apple Demos',
+      destination: KeypadLockScreenDemo(),
+    ),
+
+    // Widget Categories
+    _CatalogItem(
+      title: 'Containers & Cards',
+      subtitle: 'Card · Panel · Grouped Section · Divider · Stepper',
+      icon: CupertinoIcons.square_stack_3d_up_fill,
+      category: 'Widgets',
+      destination: ContainersPage(),
+    ),
+    _CatalogItem(
+      title: 'Interactive Controls',
+      subtitle: 'Button · Switch · Slider · Segmented · PullDownButton',
+      icon: CupertinoIcons.hand_point_right_fill,
+      category: 'Widgets',
+      destination: InteractivePage(),
+    ),
+    _CatalogItem(
+      title: 'Input Fields',
+      subtitle: 'TextField · TextArea · PasswordField · SearchBar · Picker',
+      icon: CupertinoIcons.keyboard,
+      category: 'Widgets',
+      destination: InputPage(),
+    ),
+    _CatalogItem(
+      title: 'Feedback Indicators',
+      subtitle: 'ProgressIndicator · Toast · HUD',
+      icon: CupertinoIcons.hourglass,
+      category: 'Widgets',
+      destination: FeedbackPage(),
+    ),
+    _CatalogItem(
+      title: 'Overlays & Modals',
+      subtitle: 'Sheet · Dialog · Action Sheet · Menu · Popover',
+      icon: CupertinoIcons.square_stack_fill,
+      category: 'Widgets',
+      destination: OverlaysPage(),
+    ),
+    _CatalogItem(
+      title: 'Surfaces & Bars',
+      subtitle: 'AppBar · TabBar · Toolbar · NavigationShell',
+      icon: CupertinoIcons.rectangle_3_offgrid_fill,
+      category: 'Widgets',
+      destination: SurfacesPage(),
+    ),
+
+    // Advanced Examples & Demos
+    _CatalogItem(
+      title: 'Navigation Patterns',
+      subtitle: 'Scaffold Nav · Scroll Collapse · Pinned Chrome',
+      icon: CupertinoIcons.rectangle_split_3x1,
+      category: 'Examples',
+      destination: NavBarPatternsDemo(),
+    ),
+    _CatalogItem(
+      title: 'Glass Menus (9 Alignments)',
+      subtitle: 'Teardrop Liquid Morph, submenus & swipe-to-select',
+      icon: CupertinoIcons.ellipsis_circle_fill,
+      category: 'Examples',
+      destination: MenuDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Lists, Pickers & Nav',
+      subtitle: 'Swipe actions, edit & reorder, disclosure, date pickers',
+      icon: CupertinoIcons.square_stack_3d_up_fill,
+      category: 'Examples',
+      destination: ListsPickersAndNavDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Tab Bar Menus',
+      subtitle: 'Pull-down menus on bottom, minimizable & searchable bars',
+      icon: CupertinoIcons.ellipsis_vertical_circle_fill,
+      category: 'Examples',
+      destination: TabBarMenuDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Modal Sheets (Peek/Half/Full)',
+      subtitle: 'Liquid morph triggers, detents, Apple Maps gestures',
+      icon: CupertinoIcons.rectangle_on_rectangle,
+      category: 'Examples',
+      destination: ShowcaseApp(),
+    ),
+    _CatalogItem(
+      title: 'Text Field Styling',
+      subtitle: 'Liquid focus outline, error states & solid wells',
+      icon: CupertinoIcons.textbox,
+      category: 'Examples',
+      destination: TextFieldDemo(),
+    ),
+    _CatalogItem(
+      title: 'Video Player Controls',
+      subtitle: 'Liquid glass scrubbing slider & floating player chrome',
+      icon: CupertinoIcons.play_circle_fill,
+      category: 'Examples',
+      destination: VideoGlassDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Tab Width Showcase',
+      subtitle: 'Adaptive tab widths, labels & icon spacing',
+      icon: CupertinoIcons.slider_horizontal_3,
+      category: 'Examples',
+      destination: TabWidthDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Minimizable Bar',
+      subtitle: 'Collapse-to-pill on scroll (iOS 26 behavior)',
+      icon: CupertinoIcons.arrow_down_to_line_alt,
+      category: 'Examples',
+      destination: MinimizableBarDemo(),
+    ),
+    _CatalogItem(
+      title: 'Buttons & Shadows',
+      subtitle: 'Press parity, squeeze stretch & GPU SDF shadows',
+      icon: CupertinoIcons.layers_fill,
+      category: 'Examples',
+      destination: ShadowClippingDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Content-Aware Brightness',
+      subtitle: 'Dynamic contrast detection over dark and light backdrops',
+      icon: CupertinoIcons.sun_dust_fill,
+      category: 'Examples',
+      destination: ContentAwareBrightnessDemo(),
+    ),
+    _CatalogItem(
+      title: 'Indicator Parity Harness',
+      subtitle: 'All 5 indicator pill widgets compared side-by-side',
+      icon: CupertinoIcons.dial_fill,
+      category: 'Examples',
+      destination: IndicatorParityDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'RTL Layout Mirroring',
+      subtitle: 'Full RTL physics, drag direction & layout flipping',
+      icon: CupertinoIcons.arrow_right_arrow_left_square_fill,
+      category: 'Examples',
+      destination: RtlLayoutDemo(),
+    ),
+    _CatalogItem(
+      title: 'Meniscus & Optical Blur',
+      subtitle: 'Optical rim darkening & 24-tap Gaussian blur',
+      icon: CupertinoIcons.circle_righthalf_fill,
+      category: 'Examples',
+      destination: MeniscusAndBlurDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Glass Materialize',
+      subtitle: 'Progressive defogging entrance and exit transitions',
+      icon: CupertinoIcons.sparkles,
+      category: 'Examples',
+      destination: MaterializeDemo(),
+    ),
+    _CatalogItem(
+      title: 'Scroll Edge Effect',
+      subtitle: 'Graduated ProgressiveBlur dissolve headers',
+      icon: CupertinoIcons.arrow_up_to_line,
+      category: 'Examples',
+      destination: ScrollEdgeStyleDemo(),
+    ),
+    _CatalogItem(
+      title: 'Touch Specular & Vibrancy',
+      subtitle: 'Finger-following specular highlights & nested vibrancy fill',
+      icon: CupertinoIcons.sparkles,
+      category: 'Examples',
+      destination: TouchSpecularAndVibrancyDemo(),
+    ),
+    _CatalogItem(
+      title: 'Quality Tiers Comparison',
+      subtitle: 'Premium vs Standard vs Minimal visual comparison',
+      icon: CupertinoIcons.sparkles,
+      category: 'Examples',
+      destination: GlassQualityComparisonDemo(),
+    ),
+    _CatalogItem(
+      title: 'Color Fidelity',
+      subtitle: 'Glass.clear vs Glass.regular color absorption',
+      icon: CupertinoIcons.color_filter,
+      category: 'Examples',
+      destination: ColorFidelityDemoPage(),
+    ),
+    _CatalogItem(
+      title: 'Platform View Passthrough',
+      subtitle: 'Compositing glass directly over native Google Maps view',
+      icon: CupertinoIcons.map_fill,
+      category: 'Examples',
+      destination: PlatformViewDemo(),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanQuery = query.trim().toLowerCase();
+    final filtered = cleanQuery.isEmpty
+        ? _allItems
+        : _allItems.where((item) {
+            return item.title.toLowerCase().contains(cleanQuery) ||
+                item.subtitle.toLowerCase().contains(cleanQuery) ||
+                item.category.toLowerCase().contains(cleanQuery);
+          }).toList();
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    CupertinoIcons.search,
+                    size: 18,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    cleanQuery.isEmpty
+                        ? 'Catalog Search (${_allItems.length} components)'
+                        : 'Matching Results (${filtered.length})',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (filtered.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.search,
+                    size: 48,
+                    color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No components found for "$query"',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = filtered[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: GlassContainer.card(
+                      surfaceStyle: GlassSurfaceStyle.solid,
+                      onTap: () {
+                        onSelect();
+                        _openDemo(context, item.destination);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFA855F7).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                item.icon,
+                                size: 20,
+                                color: const Color(0xFFA855F7),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: CupertinoColors.label.resolveFrom(context),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          item.category,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    item.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 16,
+                              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                childCount: filtered.length,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
